@@ -1,35 +1,45 @@
 import pygame
 import pygame.locals as pg_lc
-from interfaces import RGB, grid_style
+from interfaces import grid_style
 
 pygame.init()
-bg_color: RGB = (30, 30, 30)
+screen_colors = {
+  "tile_color": (15, 15, 15),
+  "bg_color": (30, 30, 30),
+}
 pygame.display.set_caption("Map Maker")
 
 
 class Canvas:
   def __init__(self):
-    self.color: RGB = (15, 15, 15)
+    self.drawings: list[grid_style] = []
+    self.pallet_colors = {
+      "black": {"rgb": (0, 0, 0)},
+      "red": {"rgb": (200, 0, 0)},
+      "green": {"rgb": (0, 200, 0)},
+      "blue": {"rgb": (0, 0, 200)},
+      "white": {"rgb": (200, 200, 200)},
+    }
+    self.ink_heigth = 50
 
     self.border = 5
     self.gap = 1
     self.tile_size = 16
     self.tiles_amount = 32
 
-    self.screen_size = (
+    self.canvas_size = (
       self.tile_size * self.tiles_amount
       + self.border * 2
       + self.gap * (self.tiles_amount - 1)
     )
-    self.screen = pygame.display.set_mode((self.screen_size * 1.2, self.screen_size))
-    self.screen.fill(bg_color)
-    self.drawings: list[grid_style] = []
+    self.screen = pygame.display.set_mode((self.canvas_size * 1.2, self.canvas_size))
+    self.screen.fill(screen_colors["bg_color"])
 
-    self.set_grid()
-    self.set_pallet()
+    self.create_grid()
+    self.draw_pallet()
+    self.insert_colors()
 
-
-  def set_grid(self):
+  def create_grid(self):
     for line in range(self.tiles_amount):
       self.drawings.append([])
       for col in range(self.tiles_amount):
@@ -47,7 +57,7 @@ class Canvas:
           self.tile_size,  # size y
         )
 
-        grid = (self.color, pos_size)
+        grid = (screen_colors["tile_color"], pos_size)
         self.drawings[line].append(grid)
     self.selected_grid = self.drawings[0][0]
 
@@ -56,8 +66,11 @@ class Canvas:
       for slot in line:
         pygame.draw.rect(self.screen, slot[0], slot[1])  # tile
 
-  def draw(self, matrix_coords, color=(255, 0, 0)):
-    proportion_coef = self.screen_size / self.tiles_amount
+  def draw(self, matrix_coords, color=None):
+    if not color:
+      color = self.pallet_colors["red"]["rgb"]
+
+    proportion_coef = self.canvas_size / self.tiles_amount
     col = int(matrix_coords[0] / proportion_coef)
     line = int(matrix_coords[1] / proportion_coef)
 
@@ -67,14 +80,35 @@ class Canvas:
       if matrix_coords:
         self.drawings[line][col] = (color,) + (tuple(slot[1]),)
 
-  def set_pallet(self):
-    self.pallet_pos_x = self.screen_size
-    self.pallet_pos_y = self.border
-    pygame.draw.rect(
-      self.screen,
-      (255, 255, 255),
-      (self.pallet_pos_x, self.pallet_pos_y, self.screen_size * 0.1, 40),
+  def draw_pallet(self):
+    pallet_pos_x = self.canvas_size
+    pallet_pos_y = self.border
+    self.pallet_width = self.canvas_size * 0.2 - self.border
+    self.pallet_heigth = self.canvas_size - self.border * 2
+
+    container_form = pygame.Rect(
+      pallet_pos_x, pallet_pos_y, self.pallet_width, self.pallet_heigth
     )
+
+    self.pallet = self.screen.subsurface(container_form)
+    self.pallet.fill((25, 25, 25))
+
+  def insert_colors(self):
+    pos_y = 0
+
+    for key in self.pallet_colors:
+      self.pallet_colors[key]["ink"] = pygame.draw.rect(
+        self.pallet,
+        self.pallet_colors[key]["rgb"],
+        (0, pos_y, self.pallet_width - self.gap, self.ink_heigth),
+      )
+      pos_y += self.ink_heigth + self.border
+
+  def change_color(self, mouse_pos):
+    proportion_coef = self.ink_heigth + self.border
+    ink_idx = mouse_pos[1] // proportion_coef
+    if mouse_pos[0] > self.canvas_size and ink_idx < len(self.pallet_colors):
+      print(list(self.pallet_colors.keys())[ink_idx])
 
 
 canvas = Canvas()
@@ -89,11 +123,13 @@ while running_game:
   if pygame.mouse.get_pressed()[0]:
     try:
       canvas.draw(tuple(event.pos))
+      canvas.change_color(tuple(event.pos))
     except AttributeError:
       pass
+
   elif pygame.mouse.get_pressed()[2]:
     try:
-      canvas.draw(tuple(event.pos), canvas.color)
+      canvas.draw(tuple(event.pos), screen_colors["tile_color"])
     except AttributeError:
       pass
 
