@@ -1,78 +1,91 @@
 import json
 import pygame
-from Settings import (
-  screen_colors,
-  pallet_colors,
-  canvas_gap,
-  canvas_tile_size,
-  canvas_tiles_amount,
-  border,
-  rgb_type,
-)
+from Settings import screen_colors, pallet_colors, CANVAS_GAP, BORDER
+from game_demo.game_settings import TILE_SIZE, TILES_AMOUNT
 
 
 class Canvas:
   def __init__(self):
     self.drawings: list = []  # matrix da tela
-    self.selected_color = pallet_colors["red"]
+    self.colors = tuple(pallet_colors.keys())
 
-    self.border = border
-    self.gap = canvas_gap  # espaço entre tijolos da tela
-    self.tile_size = canvas_tile_size  # tamanho dos tijolos da tela
-    self.tiles_amount = canvas_tiles_amount  # numero de tijolos² na tela
+    self.BORDER = BORDER
+    self.gap = CANVAS_GAP  # espaço entre tijolos da tela
+    self.tile_size = TILE_SIZE  # tamanho dos tijolos da tela
+    self.tiles_amount = TILES_AMOUNT  # numero de tijolos² na tela
 
     # tamanho da tela, calculada pela relação dos tijolos bordas e gaps
     self.size = (
       self.tile_size * self.tiles_amount
-      + self.border * 2
+      + self.BORDER * 2
       + self.gap * (self.tiles_amount - 1)
     )
     if not self.load_save():
       self.create_grid()
 
-  def save_drawing(self):
-    with open("cache.json", "w") as cache:
+  def save_game(self):
+    with open("game_demo/data/settings.json", "w") as data:
+      settings = {
+        "tile_size": self.tile_size,
+        "tiles_amount": self.tiles_amount,
+        "pallet_colors": pallet_colors,
+      }
+      json.dump(settings, data, indent=2)
+
+    with open("game_demo/data/cache.json", "w") as cache:
       json.dump(self.drawings, cache, indent=2)
 
   def load_save(self):
-    with open("cache.json") as data:
-      cache = json.load(data)
-      if len(cache) > 0:
-        self.drawings = cache
-        return True
+    try:
+      with open("game_demo/data/cache.json") as data:
+        cache = json.load(data)
+
+        if len(cache) > 0:
+          self.drawings = cache
+
+          if len(self.drawings) < TILES_AMOUNT:
+            for line in self.drawings:
+              for _ in range(TILES_AMOUNT - len(line)):
+                line.append(-1)
+
+            for _ in range(TILES_AMOUNT - len(self.drawings)):
+              self.drawings.append([-1] * TILES_AMOUNT)
+
+          elif len(self.drawings) > TILES_AMOUNT:
+            for line in self.drawings:
+              for _ in range(len(self.drawings) - TILES_AMOUNT):
+                line.pop()
+
+            for _ in range(len(self.drawings) - TILES_AMOUNT):
+              self.drawings.pop()
+          return True
+
+        return False
+    except FileNotFoundError:
+      print("Arquivo não encontrado")
       return False
 
   def create_grid(self):  # cria a matriz da tela
-    for line in range(self.tiles_amount):
-      self.drawings.append([])
-      for col in range(self.tiles_amount):
-        pos_x = (
-          self.border + (self.gap + self.tile_size if col > 0 else self.tile_size) * col
-        )
-        pos_y = (
-          self.border
-          + (self.gap + self.tile_size if line > 0 else self.tile_size) * line
-        )
-        pos_size = (
-          pos_x,
-          pos_y,
-          self.tile_size,  # size x
-          self.tile_size,  # size y
-        )
-
-        grid = (screen_colors["tile_color"], pos_size)
-        self.drawings[line].append(grid)
+    for _ in range(self.tiles_amount):
+      self.drawings.append([-1] * self.tiles_amount)
 
   def draw_grid(self, screen: pygame.Surface):
     canvas_container = pygame.Rect((0, 0, self.size, self.size))
     self.canvas = screen.subsurface(canvas_container)
 
-    for line in self.drawings:
-      for slot in line:
-        pygame.draw.rect(self.canvas, slot[0], slot[1])
+    for l_idx, line in enumerate(self.drawings):
+      for c_idx, tile in enumerate(line):
+        tile_x = (self.gap * c_idx) + self.tile_size * c_idx
+        tile_y = (self.gap * l_idx) + self.tile_size * l_idx
+
+        pygame.draw.rect(
+          self.canvas,
+          screen_colors["tile_color"] if tile < 0 else pallet_colors[self.colors[tile]],
+          (BORDER + self.gap + tile_x, BORDER + tile_y, self.tile_size, self.tile_size),
+        )
 
   # desenha na tela com cores especificas ou cores selecionadas da paleta
-  def draw(self, color: rgb_type = None):
+  def draw(self, color_idx: int = None):
     # o coeficiente de proporção entre um tijolo e outro em relação a matrix
     # se o coeficiente é 2, e o cursor estiver em uma posição entre 1 e 2.9, o indice é 0
     # caso o cursor esteja entre 3 e 4.9, o indice é 1
@@ -85,9 +98,8 @@ class Canvas:
     x_in_range = 0 <= col <= self.tiles_amount - 1
     y_in_range = 0 <= line <= self.tiles_amount - 1
     if x_in_range and y_in_range:
-      slot = self.drawings[line][col]
       # desenha nesse tijolo especifico com a cor selecionada
-      self.drawings[line][col] = (color or self.selected_color,) + (tuple(slot[1]),)
+      self.drawings[line][col] = color_idx
 
   def clean_all(self, screen: pygame.Surface):
     self.drawings = []

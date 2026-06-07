@@ -1,22 +1,24 @@
 type rgb_type = tuple[int, int, int]
+type pos_type = tuple[int, int]
+type size_type = tuple[int, int]
 
 screen_colors = {
-  "tile_color": (15, 15, 15),
   "bg_color": (30, 30, 30),
+  "tile_color": (50,50,50),
 }
 
 pallet_colors = {  # cores presentes na paleta
-  "black": (0, 0, 0),
   "red": (200, 0, 0),
   "green": (0, 200, 0),
   "blue": (0, 0, 200),
+  "black": (0, 0, 0),
   "white": (200, 200, 200),
 }
 
 # global props
-border = 5
+BORDER = 5
 
 # cnavas props
-canvas_gap = 1
-canvas_tile_size = 40
-canvas_tiles_amount = 16
+CANVAS_GAP = 1
+TILE_SIZE = 16
+TILES_AMOUNT = 32
